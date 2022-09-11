@@ -1,0 +1,240 @@
+---
+title: "R for Data Science Project Statistical Analyses"
+author: "Benjamin Poag"
+date: '2022-04-14'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Import libraries
+library(tidyverse)
+library(readxl) # For reading in an Excel sheet
+library(naniar) # For replacing values with NA
+library(psych) # For finding significance levels for correlations
+library(stargazer) # For well-formatted tables
+library(broom) # For informative ANOVA tables
+library(rpart) # For classification trees
+library(summarytools) # For frequency tables
+library(xtable) # For formatted correlation matrix
+library(ggplot2) # For flexible plotting
+library(rattle) # For formatting classification trees
+library(rpart.plot)
+library(RColorBrewer)
+library(nnet) # For multinomial regression analysis
+
+# Import data 
+pwe <- read.csv("PWE_data_formatted.csv")
+```
+
+## Clean data
+```{r}
+# Remove unnecessary variables
+pwe <- pwe[ , !(names(pwe) %in% c(paste0("Q", 1:19, "I"), paste0("Q", 1:19, "E"), paste0("VCL", 1:16)))]
+
+# Recode reverse-keyed items
+pwe[ , c("Q9A", "Q13A", "Q15A")] <- 6 - pwe[ , c("Q9A", "Q13A", "Q15A")]
+pwe[ , c("TIPI2", "TIPI4", "TIPI6", "TIPI8", "TIPI10")] <- 8 - pwe[ , c("TIPI2", "TIPI4", "TIPI6", "TIPI8", "TIPI10")]
+
+# Find totals for each key variable
+pwe <- pwe %>% mutate(pwe = select(., paste0("Q", 1:19, "A")) %>% rowSums()) %>% mutate(extraversion = select(., c("TIPI1", "TIPI6")) %>% rowSums()) %>% mutate(agreeableness = select(., c("TIPI2", "TIPI7")) %>% rowSums()) %>% mutate(conscientiousness = select(., c("TIPI3", "TIPI8")) %>% rowSums()) %>% mutate(emotional_stability = select(., c("TIPI4", "TIPI9")) %>% rowSums()) %>% mutate(openness = select(., c("TIPI5", "TIPI10")) %>% rowSums())
+
+```
+
+## Replace important numbered responses with character strings
+```{r}
+# Replace education level labels
+pwe["education"][pwe["education"] == 0] <- NA
+pwe["education"][pwe["education"] == 1] <- "Less than high school"
+pwe["education"][pwe["education"] == 2] <- "High school"
+pwe["education"][pwe["education"] == 3] <- "University degree"
+pwe["education"][pwe["education"] == 4] <- "Graduate degree"
+
+# Replace gender labels
+pwe["gender"][pwe["gender"] == 0] <- NA
+pwe["gender"][pwe["gender"] == 1] <- "Male"
+pwe["gender"][pwe["gender"] == 2] <- "Female"
+pwe["gender"][pwe["gender"] == 3] <- "Other"
+
+# Replace religion labels
+pwe["religion"][pwe["religion"] == 0] <- NA
+pwe["religion"][pwe["religion"] == 1] <- "Agnostic"
+pwe["religion"][pwe["religion"] == 2] <- "Atheist"
+pwe["religion"][pwe["religion"] == 3] <- "Buddhist"
+pwe["religion"][pwe["religion"] == 4] <- "Christian (Catholic)"
+pwe["religion"][pwe["religion"] == 5] <- "Christian (Mormon)"
+pwe["religion"][pwe["religion"] == 6] <- "Christian (Protestant)"
+pwe["religion"][pwe["religion"] == 7] <- "Christian (Other)"
+pwe["religion"][pwe["religion"] == 8] <- "Hindu"
+pwe["religion"][pwe["religion"] == 9] <- "Jewish"
+pwe["religion"][pwe["religion"] == 10] <- "Muslim"
+pwe["religion"][pwe["religion"] == 11] <- "Sikh"
+pwe["religion"][pwe["religion"] == 12] <- "Other"
+
+# Replace race labels
+pwe["race"][pwe["race"] == 10] <- NA
+pwe["race"][pwe["race"] == 11] <- "Asian"
+pwe["race"][pwe["race"] == 12] <- "Arab"
+pwe["race"][pwe["race"] == 13] <- "Black"
+pwe["race"][pwe["race"] == 14] <- "Indigenous Australian"
+pwe["race"][pwe["race"] == 15] <- "Native American"
+pwe["race"][pwe["race"] == 16] <- "White"
+pwe["race"][pwe["race"] == 17] <- "Other"
+
+
+
+
+```
+
+## Obtain descriptive statistics
+```{r}
+# Structure of dataset
+str(pwe)
+
+# Summarize data
+summary(pwe)
+
+# Determine percentage of missing data
+total.NA <- sum(is.na(pwe))
+total.cells <- prod(dim(pwe))
+perc.missing <- total.NA / total.cells * 100
+
+# Descriptive statistics for demographic variables
+
+## Calculate frequency of each demographic category
+demo.vars <- subset(pwe, select = c(education, gender, religion, race))
+summary(demo.vars)
+demo.table <- freq(demo.vars)
+demo.table
+
+# Calculate and tabulate means and standard deviations for continuous variables
+total.vals <- subset(pwe, select = c(pwe, extraversion, agreeableness, conscientiousness, emotional_stability, openness, age, familysize))
+stargazer(total.vals, type = 'text', summary.stat = c("n", "mean", "sd"), digits=2, align=T, title = "Descriptive Statistics", out="desc_table.htm")
+
+# Calculate and tabulate correlation matrix plus significance levels
+pwe.corr <- round(cor(total.vals), 2)
+stargazer(pwe.corr, title = "Correlation Matrix", out = "corr_mat.htm")
+pwe.corr.test <- corr.test(total.vals)$p
+pwe.corr.test
+```
+
+## Calculate Cronbach's alphas for measures used
+```{r}
+library(ltm) # For calculating scale alphas
+
+# Calculate alphas for measures in data
+pwe_alpha <- cronbach.alpha(pwe[paste0("Q", 1:19, "A")])
+e_alpha <- cronbach.alpha(pwe[c("TIPI1", "TIPI6")])
+a_alpha <- cronbach.alpha(pwe[c("TIPI2", "TIPI7")])
+c_alpha <- cronbach.alpha(pwe[c("TIPI3", "TIPI8")])
+es_alpha <- cronbach.alpha(pwe[c("TIPI4", "TIPI9")])
+o_alpha <- cronbach.alpha(pwe[c("TIPI5", "TIPI10")])
+```
+
+## Multiple regression analysis for personality traits
+```{r}
+# Create multiple regression model for PWE with personality traits as predictors
+mult.reg <- lm(pwe ~ extraversion + agreeableness + conscientiousness + emotional_stability + openness + age + familysize, data = total.vals)
+summary(mult.reg)$coefficient
+stargazer(mult.reg,
+          title="Table 3. Multiple Regression of PWE on Personality",
+          dep.var.caption="DV: Protestant Work Ethic Scale Score",
+          dep.var.labels = c("PWE"),
+          covariate.labels=c("Extraversion", "Agreeableness", "Conscientiousness", "Emotional Stability", "Openness", "Age", "Family Size"),
+          notes.label="Significance levels",
+          type="html",
+          out="mult_reg.htm")
+```
+
+## Two-way ANOVA for race and religious beliefs
+```{r}
+# Conduct two-way ANOVA for factors of race and religious beliefs plus their interaction
+pwe.aov <- aov(pwe ~ as.factor(race) * as.factor(religion), data = pwe)
+
+# Build table of ANOVA output
+summary.aov(pwe.aov)
+tidy_aov <- tidy(pwe.aov)
+
+# Conduct Tukey's post hoc test
+tidy_Tukey <- tidy(TukeyHSD(pwe.aov, which = c("as.factor(race)", "as.factor(religion)")))
+tidy_Tukey <- tidy_Tukey %>% filter(adj.p.value < 0.05)
+```
+
+## Visualize frequency of education levels
+```{r}
+# Use ggplot to visualize race
+ggplot(data = pwe) +
+  geom_bar(aes(race, fill = race))  +
+  labs(fill = "Race") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+# Use ggplot to visualize religious beliefs
+ggplot(data = pwe) +
+  geom_bar(aes(religion, fill = religion))  +
+  labs(fill = "Religion") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+# Use ggplot to visualize education level
+ggplot(data = pwe) +
+  geom_bar(aes(education, fill = education))  +
+  labs(fill = "Education Level") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+```
+
+## Test significance of PWE as predictor of educational level with multinomial logistic regression
+```{r}
+# Build regression model for education level
+edu.regr <- multinom(education ~ pwe, data = pwe)
+summary(edu.regr)
+
+# Calculate p value for model
+z <- summary(edu.regr)$coefficients/summary(edu.regr)$standard.errors
+p.edu <- (1 - pnorm(abs(z), 0, 1)) * 2
+p.edu
+
+# Export table of regression statistics
+stargazer(edu.regr,
+          title="Multinomial Logistic Regression of Education Level on PWE",
+          single.row = TRUE,
+          column.sep.width = "2pt",
+          dep.var.caption="DV: Education Level",
+          covariate.labels=c("PWE", "(Intercept)"),
+          notes.label="Significance levels",
+          type="html",
+          out="edu_log_reg.htm")
+
+```
+
+## Construct education classification tree using rpart library
+```{r}
+# Grow tree with education data
+edu.fit <- rpart(education ~ pwe,
+   method = "class", data = pwe)
+
+printcp(edu.fit) # display the results
+plotcp(edu.fit) # visualize cross-validation results
+summary(edu.fit) # detailed summary of splits
+
+# Plot tree
+plot(edu.fit, uniform = TRUE,
+   main="Classification Tree for Education Level")
+text(edu.fit, use.n = TRUE, all = TRUE, cex = .8)
+
+# Create fancy plot of tree
+fancyRpartPlot(edu.fit, caption = "Regression Tree for Education Level")
+```
+
+## Prune education classification tree 
+```{r}
+# Prune the education classification tree
+p.edu.fit<- prune(edu.fit, cp = edu.fit$cptable[which.min(edu.fit$cptable[,"xerror"]),"CP"]) # cp from cptable   
+
+# plot the pruned tree
+plot(p.edu.fit, uniform=TRUE,
+   main="Pruned Regression Tree for Education Level")
+text(p.edu.fit, use.n=TRUE, all=TRUE, cex=.8)
+
+# Create fancy plot of tree
+fancyRpartPlot(p.edu.fit, caption = "Pruned Regression Tree for Education Level")
+```

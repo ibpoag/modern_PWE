@@ -1,0 +1,508 @@
+---
+title: 'The Protestant Work Ethic in Modernity: Personality, Demographic, and Educational
+  Predictors'
+author: "Benjamin Poag"
+date: '2022-05-05'
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+# Import libraries
+library(tidyverse)
+library(readxl) # For reading in an Excel sheet
+library(naniar) # For replacing values with NA
+library(psych) # For finding significance levels for correlations
+library(stargazer) # For well-formatted tables
+library(broom) # For informative ANOVA tables
+library(rpart) # For classification trees
+library(summarytools) # For frequency tables
+library(xtable) # For formatted correlation matrix
+library(ggplot2) # For flexible plotting
+library(rattle) # For formatting classification trees
+library(rpart.plot)
+library(RColorBrewer)
+library(nnet) # For multinomial regression analysis
+
+# Import data 
+pwe <- read.csv("PWE_data_formatted.csv")
+
+# Remove unnecessary variables
+pwe <- pwe[ , !(names(pwe) %in% c(paste0("Q", 1:19, "I"), paste0("Q", 1:19, "E"), paste0("VCL", 1:16)))]
+
+# Recode reverse-keyed items
+pwe[ , c("Q9A", "Q13A", "Q15A")] <- 6 - pwe[ , c("Q9A", "Q13A", "Q15A")]
+pwe[ , c("TIPI2", "TIPI4", "TIPI6", "TIPI8", "TIPI10")] <- 8 - pwe[ , c("TIPI2", "TIPI4", "TIPI6", "TIPI8", "TIPI10")]
+
+# Find totals for each key variable
+pwe <- pwe %>% mutate(pwe = select(., paste0("Q", 1:19, "A")) %>% rowSums()) %>% mutate(extraversion = select(., c("TIPI1", "TIPI6")) %>% rowSums()) %>% mutate(agreeableness = select(., c("TIPI2", "TIPI7")) %>% rowSums()) %>% mutate(conscientiousness = select(., c("TIPI3", "TIPI8")) %>% rowSums()) %>% mutate(emotional_stability = select(., c("TIPI4", "TIPI9")) %>% rowSums()) %>% mutate(openness = select(., c("TIPI5", "TIPI10")) %>% rowSums())
+
+# Replace education level labels
+pwe["education"][pwe["education"] == 0] <- NA
+pwe["education"][pwe["education"] == 1] <- "Less than high school"
+pwe["education"][pwe["education"] == 2] <- "High school"
+pwe["education"][pwe["education"] == 3] <- "University degree"
+pwe["education"][pwe["education"] == 4] <- "Graduate degree"
+
+# Replace gender labels
+pwe["gender"][pwe["gender"] == 0] <- NA
+pwe["gender"][pwe["gender"] == 1] <- "Male"
+pwe["gender"][pwe["gender"] == 2] <- "Female"
+pwe["gender"][pwe["gender"] == 3] <- "Other"
+
+# Replace religion labels
+pwe["religion"][pwe["religion"] == 0] <- NA
+pwe["religion"][pwe["religion"] == 1] <- "Agnostic"
+pwe["religion"][pwe["religion"] == 2] <- "Atheist"
+pwe["religion"][pwe["religion"] == 3] <- "Buddhist"
+pwe["religion"][pwe["religion"] == 4] <- "Christian (Catholic)"
+pwe["religion"][pwe["religion"] == 5] <- "Christian (Mormon)"
+pwe["religion"][pwe["religion"] == 6] <- "Christian (Protestant)"
+pwe["religion"][pwe["religion"] == 7] <- "Christian (Other)"
+pwe["religion"][pwe["religion"] == 8] <- "Hindu"
+pwe["religion"][pwe["religion"] == 9] <- "Jewish"
+pwe["religion"][pwe["religion"] == 10] <- "Muslim"
+pwe["religion"][pwe["religion"] == 11] <- "Sikh"
+pwe["religion"][pwe["religion"] == 12] <- "Other"
+
+# Replace race labels
+pwe["race"][pwe["race"] == 10] <- NA
+pwe["race"][pwe["race"] == 11] <- "Asian"
+pwe["race"][pwe["race"] == 12] <- "Arab"
+pwe["race"][pwe["race"] == 13] <- "Black"
+pwe["race"][pwe["race"] == 14] <- "Indigenous Australian"
+pwe["race"][pwe["race"] == 15] <- "Native American"
+pwe["race"][pwe["race"] == 16] <- "White"
+pwe["race"][pwe["race"] == 17] <- "Other"
+```
+
+## The Protestant Work Ethic in Modernity: Personality, Demographic, and Educational Predictors
+In *The Protestant Ethic and the Spirit of Capitalism*, a series of essays written by German sociologist Max Weber, the development of free enterprise, rigorous work engagement, and wealth accumulation in the secular world of Northern Europe is attributed to the diligence, discipline, and thrift associated with religious adherence to Protestantism (Weber, 1958). Subverting Karl Marx’s theory of historical materialism (that all human institutions in capitalism are rooted in economic foundations), Weber favored religious idealism as the source of capitalism. He argued that the proliferation of Puritan ethics and ideas originating in the Protestant Reformation had directly shaped the “spirit of capitalism,” a metaphysical amalgam of ideas supporting individual efforts to achieve economic gain (Weber, 1958). Weber’s case for the importance of Protestant values and Calvinist religious doctrines like asceticism and predestination merged into the construct now known as Protestant work ethic (PWE), the idea that the beliefs and norms of Protestantism (specifically self-discipline, hard work, and frugality) have been essential to rational asceticism and the justification of capitalism. Compared to the extensive body of research on PWE in sociology, economics, and political science that has emerged since its introduction, Weber’s theory did not find traction in psychological research until the 1960s, when it was first examined in connection with human need for achievement (McClelland, 1961). In psychology, the PWE is traditionally conceptualized as a personality variable, characterized as the belief in the importance of hard work, frugality, and rationality as a defense against the vices of sloth, sensuality, and religious doubt (Furnham, 1987). The introduction of the PWE catalyzed a closer examination of its relevance in psychological literature during the second half of the 20th century, as its relationships with work motivation and satisfaction, attitudes about unemployment, intelligence, personality, and demographic variables were closely scrutinized (Furnham, 1984). However, over the past few decades, research on the PWE has diminished significantly and modern theories of how the Protestant ethic is represented globally are rather sparse.
+
+## PWE and Personality
+Since PWE is theorized to be linked to some of the most basic dimensions of human personality, a plethora of studies have focused on assessing personality predictors of belief in Protestant ideals and ultimately drawn mixed conclusions (Furnham, 1984). Initial connections were established with the need for achievement, where high achievers tended to hold stronger PWE beliefs. The most consistent associations have been found with internal locus of control; indeed, Furnham (1987) identified it as the strongest predictor by far in a stepwise multiple regression of demographic and personality variables. Of the Big Five traits, conscientiousness has demonstrated the most powerful positive connections to the PWE. Conscientiousness and PWE are both negatively associated with social loafing (the tendency to work less intensely in group contexts) (Smrt & Karau, 2011). Such connections with conscientiousness are also observed in the literature on the PWE’s relationship with attitudes about work and work-related behaviors, as the PWE also predicts internal work motivation and perceptions of task significance (Aldag & Brief, 1975). These similarities suggest some consistent overlap between the two constructs, as both entail self-reliance, hard work, loyalty to authority and obligations, and self-discipline. The other rather clear predictor of PWE scores among the Big Five is openness. Most notably, openness has been found to correlate negatively with conservatism; economic, political, and social conservatism is in turn a strong positive predictor of PWE beliefs, suggesting that openness may have indirect negative links to Protestant norms (Furnham, 1987; Osborne & Sibley, 2020). However, somewhat mixed findings exist for other personality variables. In one study, men with PWE scores above the median tended to be more intelligent, less extraverted, and less neurotic than those below the median (Rim, 1977). Also, PWE believers tended to hold more optimistic beliefs about the outcomes of lab tasks they participated in, suggesting the presence of lower neuroticism (Furnham, 1984). However, a more recent study found that extraversion was positively associated with belief in the PWE, demonstrating some mixed results on the PWE’s relevance for certain personality traits (Christopher, 2010). Moreover, another study found self esteem to be negatively related to PWE adherence such that the need to work and achieve compensated for low self-worth, suggesting a positive relation with neuroticism (Ghorpade et al., 2006). These conflicting findings, along with the scarcity of literature on the Big Five and the PWE, suggest a need to further clarify the relationship between personality traits and attachment to Protestant ideals.
+
+## PWE and Demographic Variables
+The PWE has also been examined thoroughly in connection with individual differences in demographic variables, especially age, race, religious beliefs, and educational attainment. According to a 1984 literature review, some positive associations with age have been identified, although most studies found no significant relation between PWE and age or gender (Furnham, 1984). Tang and Tzeng (1992) also noted that PWE beliefs correlated negatively with both age and educational attainment. With regard to race and ethnicity, white participants tend to score higher than black participants in most contexts (Furnham, 1987).  Some studies have examined Protestant ideals in contexts beyond the U.S., finding that such beliefs hold cross-culturally in ethnically diverse samples. Asian American and Filipino individuals in particular score high on PWE measures, especially the hard work components (Ghorpade et al., 2006). Additionally, in a survey of participants from India and Great Britain, Indians consistently scored higher on PWE than British subjects (Furnham & Rajamanickam, 1992). Religious beliefs hold perhaps the strongest relations to Protestant ideals, although the associations are more complex than one may anticipate. First, the PWE is significantly correlated with intrinsic religious motivation, a view that religion is a controlling part of life that directs one in pursuit of higher purposes rather than immediate reward (Jones et al., 2010). As expected, Catholics and Protestants also tend to score higher on PWE than Jewish and agnostic individuals (Furnham, 1987). PWE also predicts both church attendance and religious belief, and is correlated with Evangelical Christian beliefs, demonstrating that it is not exclusive to Protestant Christianity (Ghorpade et al., 2006; Furnham, 1987). Mixed results on education’s association with the PWE have been observed, with the majority of studies suggesting that less educated people tend to subscribe more to Protestant norms (Furnham, 1987; Tang & Tzeng, 1992). Thus, the literature on demographic variables and the PWE is rather extensive. However, despite the sheer volume of research, there is limited analysis of larger, more diverse samples. 
+
+## Purpose of Current Study
+Given the muddled links between the PWE and certain personality traits and the general lack of studies assessing associations with the more recent Big Five model of personality, it may be important to study how certain people may be more receptive to the Protestant ethic, regardless of religious upbringing. Thus, the current study will seek to explore the following question: How might certain trait domains of personality predict a person’s adherence to the frugal, hardworking philosophy espoused in the Protestant work ethic? The five factor model conceptualizes human personality as composed of five trait domains: extraversion, conscientiousness, agreeableness, openness, and neuroticism. While there is some literature exploring these domains, none of them explicitly reference the Big Five (Christopher, 2010; Furnham, 1984; Rim, 1977). However, it is hypothesized that predictive relations will exist between several of the domains and PWE belief in this study, namely that conscientiousness will positively predict adherence to the PWE, and that neuroticism and openness will negatively predict the PWE. Due to the lack of consistent associations with extraversion and agreeableness in previous research, there will likely not be any significant predictive relationship.
+
+Since PWE has also been historically linked with religion and race as demographic variables, it is essential to explore further how its key ideals have propagated in the modern age. As such, it is worth asking: Does an individual’s race show association with their degree of belief in Protestant work ethic principles, and could certain religious beliefs be associated with adherence to a Protestant work ethic? The PWE applies not just to active participants in Protestantism, but also to other sects of Christianity, including Catholicism and Evangelical Christianity (Furnham, 1987; Ghorpade et al., 2006). As such, the current study will likely identify significant differences between Christian participants and the rest of the participants, such that the former group will have higher PWE scores than the latter. With regard to race, it is hypothesized that white and Asian participants will score higher than other ethnic groups, as indicated by previous surveys conducted on ethnically diverse samples (Furnham, 1987; Ghorpade et al., 2006). Perhaps one of the most intriguing demographic variables to explore in light of the Protestant ethic, however, is educational attainment. How might one’s belief in the importance of the ideals surrounding the Protestant work ethic be predictive of educational attainment? In one respect, several previous studies have suggested that lower engagement in education corresponds to higher scores on PWE assessments (Furnham, 1987; Tang & Tzeng, 1992). However, a large component of PWE involves a tendency to be hard-working and hungry for achievement, perhaps suggesting that adherents to PWE could in fact form a contingent among highly educated individuals as well (McClelland, 1961).
+
+## Methods
+### Dataset
+The dataset used for the statistical analyses conducted in this study is drawn from the Open-Source Psychometrics Project, a source of raw, anonymous data from online personality tests that has been utilized in many high quality psychology papers. Specifically, it is composed of *N* = 1,350 responses from online participants (46.69% female), aged between 13 and 90 (Mage = 29.74, SD = 12.99). Only 0.08% of responses were unusable for analyses. In the sample, 10.65% of participants had completed less than a high school degree, 34.13% had completed high school, 34.43% had completed a university degree, and 20.78% had completed a graduate degree, making this a highly educated sample. The sample was 77.80% White, 9.93% Asian,  1.73% Black, 0.98% Native American, 0.08% Indigenous Australian, and 9.03% Other. With respect to religion, the dataset was 23.90% Atheist, 20.67% Agnostic, 14.83% Protestant, 13.78% Catholic, 9.14% Other Christian, 2.85% Muslim, 2.62% Hindu, 1.87% Buddhist, 1.72% Jewish, 0.75% Mormon, 0.08% Sikh, and 7.79% Other. Each case consists of responses to the Protestant Work Ethic Scale, the best-known and most widely used measure of PWE, along with answers to a Big Five personality assessment and a battery of demographic questions (Furnham, 1984). All respondents were informed that their responses would be used for research and asked whether they were accurate and suitable for use in research. Those who indicated that their responses were not accurate were subsequently removed from the sample. This ensured that the data would be composed of valid self report data. Bar plots depicting the frequency of each race, religion, and education level can be found in Figures 1, 2, and 3 respectively.
+
+```{r}
+# Use ggplot to visualize race
+ggplot(data = pwe) +
+  geom_bar(aes(race, fill = race))  +
+  labs(fill = "Race") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1)) +
+  ggtitle("Figure 1. Frequency of Racial Groups in Sample")
+
+# Use ggplot to visualize religious beliefs
+ggplot(data = pwe) +
+  geom_bar(aes(religion, fill = religion))  +
+  labs(fill = "Religion") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1)) +
+  ggtitle("Figure 2. Frequency of Religious Groups in Sample")
+
+# Use ggplot to visualize education level
+ggplot(data = pwe) +
+  geom_bar(aes(education, fill = education))  +
+  labs(fill = "Education Level") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1)) +
+  ggtitle("Figure 3. Frequency of Education Levels in Sample")
+```
+
+### Measures
+
+#### Demographic variables
+The demographic variables considered in this study (education, age, religion, and race) in addition to several others were assessed upon participants agreeing to answer additional questions for research purposes following the conclusion of the main survey.
+
+#### Protestant Work Ethic Scale (PWES)
+Belief in the Protestant ethic, the idea propagated by Max Weber promoting moral justification for hard work and accumulation of wealth, warning against self-indulgence, and encouraging an ascetic character, is measured by the 19-item Protestant Work Ethic Scale (PWES) developed in Mirels and Garrett (1971). Each item is answered on a 5-point Likert scale, from 1 (“Disagree”) to 5 (“Agree”). Responses were summed to obtain an overall score of PWE, with a higher score indicating greater adherence to the Protestant ethic. Kidron (1978) demonstrated that the measure holds adequate reliability coefficients, and it correlates logically with measures of moral guilt, sexual guilt, authoritarian beliefs (Mirels & Garrett, 1971). The current study obtained a Cronbach’s alpha of .88 for this scale.
+
+#### Ten Item Personality Inventory (TIPI)
+The trait domains of the Big Five were measured in the dataset using the Ten Item Personality Inventory (TIPI), a 10-item measure of the Big Five personality dimensions (conscientiousness, agreeableness, neuroticism, openness, and extraversion) developed and evaluated by Gosling et al. (2003). Agreement with each item statement was measured on a 7-point Likert scale, from 1 (“Disagree strongly”) to 7 (“Agree strongly”). The two items for each personality domain were added together for a total score on each of the five domains, with higher scores for each trait indicating higher levels of that trait. The TIPI displays adequate convergent and discriminant validity, including strong convergence between self- and observer-ratings (Gosling et al., 2003). For extraversion, agreeableness, conscientiousness, neuroticism, and openness, our study found mixed Cronbach's alpha levels of .70, .39, .63, .70, and .38 respectively (see Appendix for calculations).
+
+#### Analysis Plan
+Statistical analyses were conducted using numerous analytic packages in R, using a significance level of $\alpha$ = .05 for the purposes of this study. First, descriptive statistics and bivariate correlations were calculated using the summarytools and psych packages for all demographic variables and measures used. Bar charts were also generated to visualize the distribution of race, religion, and education using ggplot2 functions. Then, a multiple regression analysis was conducted in an effort to answer my first research question, using extraversion, conscientiousness, agreeableness, openness, and neuroticism as predictors of PWES score. Next, a two-way ANOVA was calculated to test the potential effects of participant race, religious beliefs, and their interaction on belief in the PWE. Finally, a multinomial logistic regression was used to study the capacity of PWES score to predict educational attainment with the nnet package. To further visualize the relationship between PWE and educational attainment, a classification tree was then fitted to the data and pruned using the rpart library.
+
+(Find all code for analyses in Appendix)
+
+## Results
+Descriptive statistics for the sample were calculated first. Several correlations of significance were identified. First, extraversion (r = .15, *p* < 0.01), conscientiousness (r = .33, *p* < 0.01), and emotional stability (r = .24, *p* < 0.01) were all significantly positively correlated with PWES score, suggesting that individuals higher in these traits tended to adhere more strongly to the Protestant ethic. Family size also interestingly held a significant positive correlation with PWES score (r = .07, *p* < 0.01). The percentage of missing data can be found below, and the mean and standard deviation for each variable and the correlation matrix can be found in Table 1 and Table 2 respectively.
+
+```{r}
+# Determine percentage of missing data
+total.NA <- sum(is.na(pwe))
+total.cells <- prod(dim(pwe))
+perc.missing <- total.NA / total.cells * 100
+perc.missing
+```
+
+```{r}
+# Subset data for descriptive statistics and correlation matrix
+total.vals <- subset(pwe, select = c(pwe, extraversion, agreeableness, 
+                                     conscientiousness, emotional_stability, 
+                                     openness, age, familysize))
+pwe.corr <- round(cor(total.vals), 2)
+```
+
+```{r, results = "hide"}
+# Calculate and tabulate means and standard deviations for continuous variables and correlation matrix
+stargazer(total.vals, type = "text", summary.stat = c("n", "mean", "sd"), digits=2, 
+          align=T, title = "Table 1. Descriptive Statistics", out="desc_table.htm")
+stargazer(pwe.corr, title = "Table 2. Correlation Matrix", out = "corr_mat.htm")
+```
+![](desc_table.jpg) 
+
+![](corr_mat.jpg)
+
+A multiple regression analysis was then conducted with independent variables of extraversion, agreeableness, conscientiousness, emotional stability, openness, age, and family size, and the outcome variable of PWES score. All seven predictors were significant, with extraversion ($\beta$ = 0.542, *p* < .01), conscientiousness ($\beta$ = 1.369, *p* < .01), emotional stability ($\beta$ = 0.659, *p* < .01) and family size ($\beta$ = 0.467, *p* < .05) positively predicting higher scores on the PWES, and agreeableness ($\beta$ = -0.411, *p* < .01), openness ($\beta$ = -0.419, *p* < .01), and age ($\beta$ = -0.082, *p* < .01) negatively predicting higher scores on the PWES. The overall regression model predicted a small but significant proportion of variance in PWES score,  R^2^ = .16, F(7, 1342) = 36.49, *p* < .01. The results from this model can be explored further in Table 3.
+
+```{r, results = "hide"}
+# Create multiple regression model for PWE with personality traits as predictors
+mult.reg <- lm(pwe ~ extraversion + agreeableness + conscientiousness + emotional_stability + 
+                 openness + age + familysize, data = total.vals)
+stargazer(mult.reg,
+          title="Multiple Regression of PWE on Personality",
+          dep.var.caption="DV: Protestant Work Ethic Scale Score",
+          dep.var.labels = c("PWE"),
+          covariate.labels=c("Extraversion", "Agreeableness", "Conscientiousness", 
+                             "Emotional Stability", "Openness", "Age", "Family Size"),
+          notes.label="Significance levels",
+          type="html",
+          out="mult_reg.htm")
+```
+
+![](mult_reg.jpg)
+
+After exploring personality, analytic focus was shifted to demographic variables. The two-way 7 X 12 ANOVA was then calculated to determine the main effects of different race groups (7 factors), religion groups (12 factors), and their interaction on the dependent variable of PWES score, and a Tukey’s post hoc analysis was then included to differentiate the effects of different factors. Overall, both race (F = 3.70, p < .01) and religion (F = 15.25, p < .001) proved to have significant effects on PWES score, while the interaction effect remained insignificant. The most significant difference in race was between White and Asian participants, such that Asian participants scored higher on average than White participants (p < 0.01). For religion, Catholic, Christian (Other), and Protestant participants had far higher scores on average than Agnostics and Atheists, with a more exaggerated disparity for Atheists (p < .001). Moreover, Christian (Other) and Protestant participants also tended to score much higher than Buddhists (p < .05), and Hindus also scored significantly higher than Atheists (p < .05). Participants who marked “Other” also tended to score lower than Catholic (p < .05), Christian (Other), and Protestant participants (p < .001). The results from the ANOVA and Tukey's post hoc test can be found below. 
+
+```{r}
+# Conduct two-way ANOVA for factors of race and religious beliefs plus their interaction
+pwe.aov <- aov(pwe ~ as.factor(race) * as.factor(religion), data = pwe)
+
+# Build table of ANOVA output
+anova(pwe.aov)
+
+# Conduct Tukey's post hoc test
+tidy_Tukey <- tidy(TukeyHSD(pwe.aov, which = c("as.factor(race)", "as.factor(religion)")))
+tidy_Tukey <- tidy_Tukey %>% filter(adj.p.value < 0.05)
+tidy_Tukey
+```
+
+Finally, a multinomial regression analysis was performed to determine the ability of PWES score to predict educational attainment among the participants. PWES score was only significantly related to an education level of less than high school, $\beta$ = 0.017, p < .05, such that a higher PWES score is a slight positive predictor of a participant having completed less than high school. The results of this analysis can be found in Table 4. To visualize PWE score as a predictor of educational attainment, a classification tree was then constructed and pruned, ultimately forming a tree with a maximum depth of 2. The final tree as illustrated with fancyRpartPlot() can be found in Figure 4.
+
+```{r, results="hide"}
+# Build regression model for education level
+edu.regr <- multinom(education ~ pwe, data = pwe)
+summary(edu.regr)
+
+# Calculate p value for model
+z <- summary(edu.regr)$coefficients/summary(edu.regr)$standard.errors
+p.edu <- (1 - pnorm(abs(z), 0, 1)) * 2
+p.edu
+
+# Export table of regression statistics
+stargazer(edu.regr,
+          title="Table 4. Multinomial Logistic Regression of Education Level on PWE",
+          single.row = TRUE,
+          column.sep.width = "2pt",
+          dep.var.caption="DV: Education Level",
+          covariate.labels=c("PWE", "(Intercept)"),
+          notes.label="Significance levels",
+          type="html",
+          out="edu_log_reg.htm")
+```
+
+![](edu_log_reg.jpg)
+
+```{r, results = "hide"}
+# Grow tree with education data
+edu.fit <- rpart(education ~ pwe,
+   method = "class", data = pwe)
+
+# Prune the education classification tree
+p.edu.fit<- prune(edu.fit, cp =
+                    edu.fit$cptable[which.min(edu.fit$cptable[,"xerror"]), "CP"]) # cp from cptable   
+
+```
+
+```{r}
+# Create fancy plot of tree
+fancyRpartPlot(p.edu.fit, caption = "Figure 4. Pruned Regression Tree for Education Level")
+```
+
+## Discussion
+These findings demonstrate some interesting theoretical paradigms that both harmonize with and divert from the current literature on the PWE. Conscientiousness, which had the strongest association of all variables in the multiple regression analysis, is naturally linked to the Protestant ethic, as it demonstrates much construct overlap with the PWE. The PWE preaches hard work, frugality, self-reliance, and opposition to sloth and sensuality, all of which tend to characterize highly conscientious individuals, who generally demonstrate self-discipline, responsibility, and a strong drive for achievement (Furnham, 1987). The relationship with emotional stability, the next strongest predictor, is also somewhat straightforward in explanation; individuals who subscribe to the PWE tend to hold more positive beliefs about their abilities in lab tasks and also tend to possess just world beliefs, having faith that they will ultimately receive what they deserve (Furnham, 1984; Furnham & Rajamanickam, 1992). Thus, less neurotic individuals, who tend to experience fewer negative emotions, may resonate more with the positivity of the PWE. Openness, a strong negative predictor of PWES score, also holds a connection to the Protestant ethic through political conservatism. Conservative individuals, who tend to be more conventional and to stand by traditional dogma, are often less open to experience and also more predisposed toward belief in the PWE (Furnham, 1987; Osborne & Sibley, 2020). The last two personality-related findings of the regression model, however, are not as straightforward. First, extraversion was found to have a strong positive association with PWE score. This is completely contrary to previous research, which largely suggests that low extraversion translates into higher PWE adherence. However, since extraversion is associated with dominance in social settings and believers in the PWE tend to be rather competitive and hard-working, it is possible that the unmeasured agentic aspects of extraversion dictate participants’ scores on the PWE (Furnham & Koritsas, 1990). Similarly, this competitiveness may explain agreeableness as a strong negative predictor, as less agreeable people tend to be more uncooperative and competitive. 
+
+The results of this study also offer many potential implications about believers in the PWE based on demographic variables. From the multiple regression analysis for instance, age was determined to be a negative predictor of PWE belief; this has been corroborated in previous studies, most of which propose that younger people may enter the workforce with more individualistic ideals and faith in the value of work, but that this viewpoint then degrades with age (Tang & Tzeng, 1992). The two-way ANOVA also found significant differences between races and religions. Asian respondents scored significantly higher than white participants, a perhaps surprising result. Previous studies, although limited, have tentatively attributed such findings to cross-cultural differences that more consistently instill an internalized drive to work hard and succeed, ideals which overlap with those of the PWE (Furnham & Rajamanickam, 1992; Ghorpade et al., 2006). In terms of religion, participants from all forms of Christianity scored significantly higher on the PWES than Agnostics, Atheists, and Buddhists. This is an intuitive and strongly established result in line with both Weber’s original theory of the Protestant ethic and psychological literature, which hold that the social tradition of frugality and discipline as well as the psychological factors associated with religiosity and cultural patterns in Christianity play a role in adherence to the PWE (Beit-Hallahmi, 1979). Of additional interest is the difference in PWE scores between Hindu participants and Atheists; this has precedence in Furnham and Rajamanickam (1992), which identifies major Indian religions (including Hinduism) as more conservative on social issues and thus more predisposed to belief in traditional values like the PWE. Finally, the results of the multinomial logistic regression require some interpretation. A higher PWES score was found to be a significant predictor of having less than a high school degree. The classification tree also demonstrates a significant skew toward individuals with less education predominating higher PWES score brackets (>= 74) and those with a university degree largely occupying the lower score brackets (< 74). This is corroborated by the results from Tang and Tzeng (1992), which infer that individuals with more education may be less inclined to accept traditional values. Additionally, individuals who preach belief in the PWE tend to prefer more realistic and conventional career paths, which often require less education to enter (Furnham & Koritsas, 1990).
+
+The many significant associations obtained in this study have interesting implications for the modern psychological literature on the Protestant ethic, in particular for understanding individual-level differences in PWE beliefs and conducting cross-cultural studies in diverse populations. Given the significance of personality alone in predicting adherence to the PWE, this study indicates that, regardless of whether one was socialized as a Christian, certain people are predisposed toward this belief system; in particular, highly conscientious and emotionally stable individuals who tend to be less open to novel ideas and more competitive in nature may find themselves agreeing with this worldview. This suggests that, although the PWE is a social construct typically associated with religious belief, it is also strongly associated with certain personality variables that are not contingent on religious belief. These findings also hold more practical implications for organizational psychology as well. For instance, employers in particular may seek to screen potential employees for these particular personality markers, since they may be more likely to adhere to the Protestant ethic and therefore be more likely to develop a strong moral identification with the organization and maintain persistence in work. However, since the identified associations with extraversion are still in conflict with the previous literature, no firm implications can be drawn from this finding. Moreover, the associations of high PWES score with an Asian ethnic background and belief in Hinduism open further possibilities for cross-cultural examinations of the PWE in different global contexts; although it is often identified with Northern Europe and America, the ideals exhibited in the Protestant ethic could demonstrate some interesting overlap with other cultural contexts. Despite this study’s strengths, however, several limitations require further mention. First, the dataset was highly skewed with respect to race and education, with 77.80% of participants being White and over half of the sample holding a university or graduate degree. This meant that some differences in PWES score  among racial groups and educational attainment groups could have been concealed by a lack of adequate diversity in the sample. Second, the data used is cross sectional, and thus no causal inferences can be drawn. Third, the only method of data collection used is self-report, which may not fully capture the complexity of personality variables. Finally, the internal consistency from several of the scales from the TIPI was rather low partially due to the brief nature of the measure, calling the reliability of the personality results into question.
+
+## References
+1. Aldag, R. J., & Brief, A. P. (1975). Some correlates of work values. Journal of Applied Psychology, 60(6), 757.
+2. Beit-Hallahmi, B. (1979). Personal and social components of the Protestant ethic. The Journal of Social Psychology, 109(2), 263-267.
+3. Christopher, A. N., Furnham, A., Batey, M., Martin, G. N., Koenig, C. S., & Doty, K. (2010). Protestant ethic endorsement, personality, and general intelligence. Learning and Individual Differences, 20(1), 46-50. http://dx.doi.org/10.1016/j.lindif.2009.10.003
+4. Furnham, A. (1984). The Protestant work ethic: A review of the psychological literature. European Journal of Social Psychology, 14(1), 87-104.
+5. Furnham, A. F. (1987). Predicting Protestant Work Ethic beliefs. European Journal of Personality, 1(2), 93-106. http://dx.doi.org/10.1002/per.2410010204
+6. Furnham, A., & Koritsas, E. (1990). The Protestant Work Ethic and vocational preference. Journal of Organizational Behavior, 11(1), 43-55. http://dx.doi.org/10.1002/job.4030110107
+7. Furnham, A., & Rajamanickam, R. (1992). The Protestant Work Ethic and Just World Beliefs in Great Britain and India. International Journal of Psychology, 27(6), 401-416. http://dx.doi.org/10.1080/00207599208246905
+8. Ghorpade, J., Lackritz, J., & Singh, G. (2006). Correlates of the Protestant Ethic of Hard Work: Results From a Diverse Ethno-Religious Sample. Journal of Applied Social Psychology, 36(10), 2449-2473. http://dx.doi.org/10.1111/j.0021-9029.2006.00112.x
+9. Gosling, S. D., Rentfrow, P. J., & Swann, W. B., Jr. (2003). A very brief measure of the Big-Five personality domains. Journal of Research in Personality, 37(6), 504-528. http://dx.doi.org/10.1016/S0092-6566(03)00046-1
+10. Jones, H. B., Jr., Furnham, A., & Deile, A. J. (2010). Religious orientation and the Protestant Work Ethic. Mental Health, Religion & Culture, 13(7-8), 697-706. http://dx.doi.org/10.1080/13674670802111862
+11. Kidron, A. (1978). Work values and organizational commitment. Academy of management Journal, 21(2), 239-247.
+12. McClelland, D. C., & Mac Clelland, D. C. (1961). Achieving society (Vol. 92051). Simon and Schuster.
+13. Mirels, H. L., & Garrett, J. B. (1971). The Protestant Ethic as a personality variable. Journal of Consulting and Clinical Psychology, 36(1), 40-44. http://dx.doi.org/10.1037/h0030477
+14. Osborne, D., & Sibley, C. G. (2020). Does openness to experience predict changes in conservatism? A nine-wave longitudinal investigation into the personality roots to ideology. Journal of Research in Personality, 87, 7. http://dx.doi.org/10.1016/j.jrp.2020.103979
+15. Rim, Y. (1977). Significance of work and personality. Journal of Occupational Psychology.
+16. Smrt, D. L., & Karau, S. J. (2011). Protestant work ethic moderates social loafing. Group Dynamics: Theory, Research, and Practice, 15(3), 267-274. http://dx.doi.org/10.1037/a0024484
+17. Tang, T. L., & Tzeng, J. Y. (1992). Demographic Correlates of the Protestant Work Ethic. Journal of Psychology, 126(2), 163. http://proxy.library.nd.edu/login?url=https://www.proquest.com/scholarly-journals/demographic-correlates-protestant-work-ethic/docview/1290505366/se-2?accountid=12874
+18. Weber. (1958). The Protestant ethic and the spirit of capitalism ([Student's ed.]..). Scribner.
+
+## Appendix (Complete Code)
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Import libraries
+library(tidyverse)
+library(readxl) # For reading in an Excel sheet
+library(naniar) # For replacing values with NA
+library(psych) # For finding significance levels for correlations
+library(stargazer) # For well-formatted tables
+library(broom) # For informative ANOVA tables
+library(rpart) # For classification trees
+library(summarytools) # For frequency tables
+library(xtable) # For formatted correlation matrix
+library(ggplot2) # For flexible plotting
+library(rattle) # For formatting classification trees
+library(rpart.plot)
+library(RColorBrewer)
+library(nnet) # For multinomial regression analysis
+
+# Import data 
+pwe <- read.csv("PWE_data_formatted.csv")
+```
+
+### Clean data
+```{r}
+# Remove unnecessary variables
+pwe <- pwe[ , !(names(pwe) %in% c(paste0("Q", 1:19, "I"), paste0("Q", 1:19, "E"), 
+                                  paste0("VCL", 1:16)))]
+
+# Recode reverse-keyed items
+pwe[ , c("Q9A", "Q13A", "Q15A")] <- 6 - pwe[ , c("Q9A", "Q13A", "Q15A")]
+pwe[ , c("TIPI2", "TIPI4", "TIPI6", "TIPI8", "TIPI10")] <- 8 - 
+  pwe[ , c("TIPI2", "TIPI4", "TIPI6", "TIPI8", "TIPI10")]
+
+# Find totals for each key variable
+pwe <- pwe %>% mutate(pwe = select(., paste0("Q", 1:19, "A")) %>% rowSums()) %>% 
+  mutate(extraversion = select(., c("TIPI1", "TIPI6")) %>% rowSums()) %>% 
+  mutate(agreeableness = select(., c("TIPI2", "TIPI7")) %>% rowSums()) %>% 
+  mutate(conscientiousness = select(., c("TIPI3", "TIPI8")) %>% rowSums()) %>% 
+  mutate(emotional_stability = select(., c("TIPI4", "TIPI9")) %>% rowSums()) %>% 
+  mutate(openness = select(., c("TIPI5", "TIPI10")) %>% rowSums())
+
+```
+
+### Replace important numbered responses with character strings
+```{r}
+# Replace education level labels
+pwe["education"][pwe["education"] == 0] <- NA
+pwe["education"][pwe["education"] == 1] <- "Less than high school"
+pwe["education"][pwe["education"] == 2] <- "High school"
+pwe["education"][pwe["education"] == 3] <- "University degree"
+pwe["education"][pwe["education"] == 4] <- "Graduate degree"
+
+# Replace gender labels
+pwe["gender"][pwe["gender"] == 0] <- NA
+pwe["gender"][pwe["gender"] == 1] <- "Male"
+pwe["gender"][pwe["gender"] == 2] <- "Female"
+pwe["gender"][pwe["gender"] == 3] <- "Other"
+
+# Replace religion labels
+pwe["religion"][pwe["religion"] == 0] <- NA
+pwe["religion"][pwe["religion"] == 1] <- "Agnostic"
+pwe["religion"][pwe["religion"] == 2] <- "Atheist"
+pwe["religion"][pwe["religion"] == 3] <- "Buddhist"
+pwe["religion"][pwe["religion"] == 4] <- "Christian (Catholic)"
+pwe["religion"][pwe["religion"] == 5] <- "Christian (Mormon)"
+pwe["religion"][pwe["religion"] == 6] <- "Christian (Protestant)"
+pwe["religion"][pwe["religion"] == 7] <- "Christian (Other)"
+pwe["religion"][pwe["religion"] == 8] <- "Hindu"
+pwe["religion"][pwe["religion"] == 9] <- "Jewish"
+pwe["religion"][pwe["religion"] == 10] <- "Muslim"
+pwe["religion"][pwe["religion"] == 11] <- "Sikh"
+pwe["religion"][pwe["religion"] == 12] <- "Other"
+
+# Replace race labels
+pwe["race"][pwe["race"] == 10] <- NA
+pwe["race"][pwe["race"] == 11] <- "Asian"
+pwe["race"][pwe["race"] == 12] <- "Arab"
+pwe["race"][pwe["race"] == 13] <- "Black"
+pwe["race"][pwe["race"] == 14] <- "Indigenous Australian"
+pwe["race"][pwe["race"] == 15] <- "Native American"
+pwe["race"][pwe["race"] == 16] <- "White"
+pwe["race"][pwe["race"] == 17] <- "Other"
+
+```
+
+### Obtain descriptive statistics
+```{r}
+# Determine percentage of missing data
+total.NA <- sum(is.na(pwe))
+total.cells <- prod(dim(pwe))
+perc.missing <- total.NA / total.cells * 100
+
+# Descriptive statistics for demographic variables
+
+## Calculate frequency of each demographic category
+demo.vars <- subset(pwe, select = c(education, gender, religion, race))
+demo.table <- freq(demo.vars)
+demo.table
+
+```
+
+```{r, results = "hide"}
+# Calculate and tabulate means and standard deviations for continuous variables
+total.vals <- subset(pwe, select = c(pwe, extraversion, agreeableness, 
+            conscientiousness, emotional_stability, openness, age, familysize))
+stargazer(total.vals, type = 'text', summary.stat = c("n", "mean", "sd"), digits=2, 
+          align=T, title = "Descriptive Statistics", out="desc_table.htm")
+
+# Calculate and tabulate correlation matrix plus significance levels
+pwe.corr <- round(cor(total.vals), 2)
+stargazer(pwe.corr, title = "Correlation Matrix", out = "corr_mat.htm")
+pwe.corr.test <- corr.test(total.vals)$p
+pwe.corr.test
+```
+
+### Calculate Cronbach's alphas for measures used
+```{r, results = "hide"}
+library(ltm) # For calculating scale alphas
+
+# Calculate alphas for measures in data
+pwe_alpha <- cronbach.alpha(pwe[paste0("Q", 1:19, "A")])
+e_alpha <- cronbach.alpha(pwe[c("TIPI1", "TIPI6")])
+a_alpha <- cronbach.alpha(pwe[c("TIPI2", "TIPI7")])
+c_alpha <- cronbach.alpha(pwe[c("TIPI3", "TIPI8")])
+es_alpha <- cronbach.alpha(pwe[c("TIPI4", "TIPI9")])
+o_alpha <- cronbach.alpha(pwe[c("TIPI5", "TIPI10")])
+```
+
+### Multiple regression analysis for personality traits
+```{r, results = "hide"}
+# Create multiple regression model for PWE with personality traits as predictors
+mult.reg <- lm(pwe ~ extraversion + agreeableness + conscientiousness + 
+                 emotional_stability + openness + age + familysize, data = total.vals)
+summary(mult.reg)$coefficient
+stargazer(mult.reg,
+          title="Table 3. Multiple Regression of PWE on Personality",
+          dep.var.caption="DV: Protestant Work Ethic Scale Score",
+          dep.var.labels = c("PWE"),
+          covariate.labels=c("Extraversion", "Agreeableness", "Conscientiousness", 
+                             "Emotional Stability", "Openness", "Age", "Family Size"),
+          notes.label="Significance levels",
+          type="html",
+          out="mult_reg.htm")
+```
+
+### Two-way ANOVA for race and religious beliefs
+```{r}
+# Conduct two-way ANOVA for factors of race and religious beliefs plus their interaction
+pwe.aov <- aov(pwe ~ as.factor(race) * as.factor(religion), data = pwe)
+
+# Build table of ANOVA output
+summary.aov(pwe.aov)
+tidy_aov <- tidy(pwe.aov)
+
+# Conduct Tukey's post hoc test
+tidy_Tukey <- tidy(TukeyHSD(pwe.aov, which = c("as.factor(race)", "as.factor(religion)")))
+tidy_Tukey <- tidy_Tukey %>% filter(adj.p.value < 0.05)
+```
+
+### Visualize frequency of education levels and major categories
+```{r}
+# Use ggplot to visualize race
+ggplot(data = pwe) +
+  geom_bar(aes(race, fill = race))  +
+  labs(fill = "Race") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+# Use ggplot to visualize religious beliefs
+ggplot(data = pwe) +
+  geom_bar(aes(religion, fill = religion))  +
+  labs(fill = "Religion") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+# Use ggplot to visualize education level
+ggplot(data = pwe) +
+  geom_bar(aes(education, fill = education))  +
+  labs(fill = "Education Level") +
+  theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+```
+
+### Test significance of PWE as predictor of educational level with multinomial logistic regression
+```{r, results = "hide"}
+# Build regression model for education level
+edu.regr <- multinom(education ~ pwe, data = pwe)
+summary(edu.regr)
+
+# Calculate p value for model
+z <- summary(edu.regr)$coefficients/summary(edu.regr)$standard.errors
+p.edu <- (1 - pnorm(abs(z), 0, 1)) * 2
+p.edu
+
+# Export table of regression statistics
+stargazer(edu.regr,
+          title="Multinomial Logistic Regression of Education Level on PWE",
+          single.row = TRUE,
+          column.sep.width = "2pt",
+          dep.var.caption="DV: Education Level",
+          covariate.labels=c("PWE", "(Intercept)"),
+          notes.label="Significance levels",
+          type="html",
+          out="edu_log_reg.htm")
+```
+
+### Construct education classification tree using rpart library
+```{r}
+# Grow tree with education data
+edu.fit <- rpart(education ~ pwe,
+   method = "class", data = pwe)
+
+printcp(edu.fit) # display the results
+plotcp(edu.fit) # visualize cross-validation results
+
+# Plot tree
+plot(edu.fit, uniform = TRUE,
+   main="Classification Tree for Education Level")
+text(edu.fit, use.n = TRUE, all = TRUE, cex = .8)
+
+# Create fancy plot of tree
+fancyRpartPlot(edu.fit, caption = "Regression Tree for Education Level")
+```
+
+### Prune education classification tree 
+```{r}
+# Prune the education classification tree
+p.edu.fit<- prune(edu.fit, cp = 
+      edu.fit$cptable[which.min(edu.fit$cptable[,"xerror"]),"CP"]) # cp from cptable   
+
+# plot the pruned tree
+plot(p.edu.fit, uniform=TRUE,
+   main="Pruned Regression Tree for Education Level")
+text(p.edu.fit, use.n=TRUE, all=TRUE, cex=.8)
+
+# Create fancy plot of tree
+fancyRpartPlot(p.edu.fit, caption = "Pruned Regression Tree for Education Level")
+```
